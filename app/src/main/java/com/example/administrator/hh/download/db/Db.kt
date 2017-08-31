@@ -71,7 +71,7 @@ internal object Db {
             values.put(COLUMN_EXTRA4, bean.extra4)
             values.put(COLUMN_EXTRA5, bean.extra5)
             values.put(COLUMN_DATE, Date().time)
-            missionId.doEmpty {
+            missionId?.doEmpty {
                 values.put(COLUMN_MISSION_ID, missionId)
             }
             return values

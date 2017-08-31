@@ -5,9 +5,11 @@ import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import com.example.administrator.hh.download.entity.DownloadBean
 import com.example.administrator.hh.download.entity.DownloadFlag
+import com.example.administrator.hh.download.entity.DownloadRecord
 import com.example.administrator.hh.download.entity.DownloadStatus
 import com.example.administrator.hh.download.ex.orElse
 import com.example.administrator.hh.download.ex.singletonLock
+import java.util.*
 
 /**
  * 静态单例
@@ -56,6 +58,14 @@ class DataBaseHelper private constructor(context: Context) {
         }!!
     }
 
+    fun closeDataBase() {
+        synchronized(databaseLock) {
+            readableDatabase = null
+            writableDatabase = null
+            mDbOpenHelper.close()
+        }
+    }
+
     //正常的方法
     /**
      * Judge the url's record exists.
@@ -67,10 +77,11 @@ class DataBaseHelper private constructor(context: Context) {
     fun recordNotExists(url: String): Boolean {
         var cursor: Cursor? = null
         var result = false
-        getReadableDatabase().query(Db.RecordTable.TABLE_NAME, arrayOf<String>(Db.RecordTable.COLUMN_ID),
-                Db.RecordTable.COLUMN_URL + "=?", arrayOf(url), null, null, null).use {
+        cursor = getReadableDatabase().query(Db.RecordTable.TABLE_NAME, arrayOf<String>(Db.RecordTable.COLUMN_ID),
+                Db.RecordTable.COLUMN_URL + "=?", arrayOf(url), null, null, null)
+        cursor.use {
             cursor!!.moveToFirst()
-            result = cursor.count == 0
+            result = cursor!!.count == 0
         }
         return result
     }
@@ -111,6 +122,110 @@ class DataBaseHelper private constructor(context: Context) {
         return getWritableDatabase().update(Db.RecordTable.TABLE_NAME, Db.RecordTable.update(DownloadFlag.PAUSED),
                 Db.RecordTable.COLUMN_DOWNLOAD_FLAG + "=? or " + Db.RecordTable.COLUMN_DOWNLOAD_FLAG + "=?",
                 arrayOf<String>(DownloadFlag.WAITING.flagInt.toString(), DownloadFlag.STARTED.flagInt.toString())).toLong()
+    }
+
+    /**
+     * Read single Record.
+
+     * @param url url
+     * *
+     * @return Record
+     */
+    fun readSingleRecord(url: String): DownloadRecord? {
+        var record: DownloadRecord? = null
+        val cursor = getReadableDatabase().query(Db.RecordTable.TABLE_NAME,
+                arrayOf<String>(
+                        Db.RecordTable.COLUMN_ID,
+                        Db.RecordTable.COLUMN_URL,
+                        Db.RecordTable.COLUMN_SAVE_NAME,
+                        Db.RecordTable.COLUMN_SAVE_PATH,
+                        Db.RecordTable.COLUMN_DOWNLOAD_SIZE,
+                        Db.RecordTable.COLUMN_TOTAL_SIZE,
+                        Db.RecordTable.COLUMN_IS_CHUNKED,
+                        Db.RecordTable.COLUMN_EXTRA1,
+                        Db.RecordTable.COLUMN_EXTRA2,
+                        Db.RecordTable.COLUMN_EXTRA3,
+                        Db.RecordTable.COLUMN_EXTRA4,
+                        Db.RecordTable.COLUMN_EXTRA5,
+                        Db.RecordTable.COLUMN_DOWNLOAD_FLAG,
+                        Db.RecordTable.COLUMN_DATE,
+                        Db.RecordTable.COLUMN_MISSION_ID),
+                Db.RecordTable.COLUMN_URL + "=?",
+                arrayOf(url), null, null, null)
+        cursor.use {
+            cursor!!.moveToFirst()
+            if (cursor.count != 0) {
+                record = Db.RecordTable.read(cursor)
+            }
+        }
+        return record
+    }
+
+    /**
+     * Read missionId all records.
+
+     * @param missionId missionId
+     * *
+     * @return Records
+     */
+    fun readMissionsRecord(missionId: String): List<DownloadRecord> {
+        var cursor: Cursor? = null
+        cursor = getReadableDatabase().query(Db.RecordTable.TABLE_NAME,
+                arrayOf<String>(
+                        Db.RecordTable.COLUMN_ID,
+                        Db.RecordTable.COLUMN_URL,
+                        Db.RecordTable.COLUMN_SAVE_NAME,
+                        Db.RecordTable.COLUMN_SAVE_PATH,
+                        Db.RecordTable.COLUMN_DOWNLOAD_SIZE,
+                        Db.RecordTable.COLUMN_TOTAL_SIZE,
+                        Db.RecordTable.COLUMN_IS_CHUNKED,
+                        Db.RecordTable.COLUMN_EXTRA1,
+                        Db.RecordTable.COLUMN_EXTRA2,
+                        Db.RecordTable.COLUMN_EXTRA3,
+                        Db.RecordTable.COLUMN_EXTRA4,
+                        Db.RecordTable.COLUMN_EXTRA5,
+                        Db.RecordTable.COLUMN_DOWNLOAD_FLAG,
+                        Db.RecordTable.COLUMN_DATE,
+                        Db.RecordTable.COLUMN_MISSION_ID),
+                Db.RecordTable.COLUMN_MISSION_ID + "=?", arrayOf(missionId), null, null, null)
+        val result = ArrayList<DownloadRecord>()
+        cursor.use {
+            cursor!!.moveToFirst()
+            if (cursor!!.count > 0) {
+                do {
+                    result.add(Db.RecordTable.read(cursor!!))
+                } while (cursor!!.moveToNext())
+            }
+        }
+        return result
+    }
+
+    /**
+     * Read the url's download status.
+
+     * @param url url
+     * *
+     * @return download status
+     */
+    fun readStatus(url: String): DownloadStatus {
+        var cursor: Cursor? = null
+        var ds: DownloadStatus? = null
+        cursor = getReadableDatabase().query(
+                Db.RecordTable.TABLE_NAME,
+                arrayOf<String>(
+                        Db.RecordTable.COLUMN_DOWNLOAD_SIZE,
+                        Db.RecordTable.COLUMN_TOTAL_SIZE,
+                        Db.RecordTable.COLUMN_IS_CHUNKED),
+                Db.RecordTable.COLUMN_URL + "=?", arrayOf(url), null, null, null)
+        cursor.use {
+            cursor!!.moveToFirst()
+            if (cursor!!.count == 0) {
+                ds = DownloadStatus()
+            } else {
+                ds = Db.RecordTable.readStatus(cursor!!)
+            }
+        }
+        return ds!!
     }
 
 }
