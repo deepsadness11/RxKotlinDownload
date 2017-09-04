@@ -9,6 +9,9 @@ import com.example.administrator.hh.download.entity.DownloadRecord
 import com.example.administrator.hh.download.entity.DownloadStatus
 import com.example.administrator.hh.download.ex.orElse
 import com.example.administrator.hh.download.ex.singletonLock
+import io.reactivex.Observable
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
 import java.util.*
 
 /**
@@ -227,5 +230,81 @@ class DataBaseHelper private constructor(context: Context) {
         }
         return ds!!
     }
+
+    fun readAllRecords(): Observable<List<DownloadRecord>> = Observable.create<List<DownloadRecord>> {
+        e ->
+        val column = arrayOf<String>(
+                Db.RecordTable.COLUMN_ID,
+                Db.RecordTable.COLUMN_URL,
+                Db.RecordTable.COLUMN_SAVE_NAME,
+                Db.RecordTable.COLUMN_SAVE_PATH,
+                Db.RecordTable.COLUMN_DOWNLOAD_SIZE,
+                Db.RecordTable.COLUMN_TOTAL_SIZE,
+                Db.RecordTable.COLUMN_IS_CHUNKED,
+                Db.RecordTable.COLUMN_EXTRA1,
+                Db.RecordTable.COLUMN_EXTRA2,
+                Db.RecordTable.COLUMN_EXTRA3,
+                Db.RecordTable.COLUMN_EXTRA4,
+                Db.RecordTable.COLUMN_EXTRA5,
+                Db.RecordTable.COLUMN_DOWNLOAD_FLAG,
+                Db.RecordTable.COLUMN_DATE,
+                Db.RecordTable.COLUMN_MISSION_ID
+        )
+        val cursor = getReadableDatabase().query(Db.RecordTable.TABLE_NAME, column,
+                null, null, null, null, null
+        )
+        val result = arrayListOf<DownloadRecord>()
+        cursor.use {
+            if (cursor.count > 0) {
+                do {
+                    result.add(Db.RecordTable.read(cursor))
+                } while (cursor.moveToNext())
+            }
+            e!!.onNext(result)
+            e.onComplete()
+        }
+    }
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+
+    fun readRecord(url: String) = Observable.create<DownloadRecord> {
+        e ->
+        val column = arrayOf<String>(
+                Db.RecordTable.COLUMN_ID,
+                Db.RecordTable.COLUMN_URL,
+                Db.RecordTable.COLUMN_SAVE_NAME,
+                Db.RecordTable.COLUMN_SAVE_PATH,
+                Db.RecordTable.COLUMN_DOWNLOAD_SIZE,
+                Db.RecordTable.COLUMN_TOTAL_SIZE,
+                Db.RecordTable.COLUMN_IS_CHUNKED,
+                Db.RecordTable.COLUMN_EXTRA1,
+                Db.RecordTable.COLUMN_EXTRA2,
+                Db.RecordTable.COLUMN_EXTRA3,
+                Db.RecordTable.COLUMN_EXTRA4,
+                Db.RecordTable.COLUMN_EXTRA5,
+                Db.RecordTable.COLUMN_DOWNLOAD_FLAG,
+                Db.RecordTable.COLUMN_DATE,
+                Db.RecordTable.COLUMN_MISSION_ID
+        )
+
+        val cursor = getReadableDatabase().query(Db.RecordTable.TABLE_NAME,
+                column,
+                Db.RecordTable.COLUMN_URL + "=?",
+                arrayOf<String>(url),
+                null, null, null)
+
+        cursor.use {
+            cursor.moveToFirst()
+            if (cursor.count == 0) {
+                e.onNext(DownloadRecord())
+            } else {
+                e.onNext(Db.RecordTable.read(cursor))
+            }
+            e.onComplete()
+        }
+    }
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+
 
 }
